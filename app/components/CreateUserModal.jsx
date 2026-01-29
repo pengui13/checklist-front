@@ -54,7 +54,7 @@ export default function CreateUserModal({ onClose, onSuccess }) {
         hex_color: normalizeHex(formData.hex_color),
       };
 
-      const response = await fetch('http://localhost:8000/api/auth/users/create/', {
+      const response = await fetch('https://cryphos.com/api/auth/users/create/', {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

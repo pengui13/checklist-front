@@ -50,7 +50,7 @@ export default function AdminUsersPage() {
     setLoading(true);
     setErrorMsg('');
     try {
-      const response = await fetch('http://localhost:8000/api/auth/users/', {
+      const response = await fetch('https://cryphos.com/api/auth/users/', {
         headers: {
           Authorization: `Bearer ${Cookies.get('access_token')}`,
         },
@@ -115,7 +115,7 @@ export default function AdminUsersPage() {
         const firmId = currentUser?.firm?.id ?? currentUser?.firm;
 
       const res = await fetch(
-        `http://localhost:8000/api/auth/toggle_active/?firm=${encodeURIComponent(firmId)}`,
+        `https://cryphos.com/api/auth/toggle_active/?firm=${encodeURIComponent(firmId)}`,
         {
           method: 'PATCH',
           headers: {

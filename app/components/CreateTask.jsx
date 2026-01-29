@@ -42,7 +42,7 @@ const availableLevels = useMemo(() => {
     const fetchUsers = async () => {
       setUsersLoading(true);
       try {
-        const res = await fetch('http://localhost:8000/api/auth/users/', {
+        const res = await fetch('https://cryphos.com/api/auth/users/', {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -92,7 +92,7 @@ const availableLevels = useMemo(() => {
         form.append('task', taskId);
 
         const res = await fetch(
-          `http://localhost:8000/api/organisation/tasks/${taskId}/attachments/`,
+          `https://cryphos.com/api/organisation/tasks/${taskId}/attachments/`,
           {
             method: 'POST',
             headers: {
@@ -133,7 +133,7 @@ const availableLevels = useMemo(() => {
     if (endDatetime) payload.end_datetime = new Date(endDatetime).toISOString();
 
     try {
-      const response = await fetch('http://localhost:8000/api/organisation/tasks/', {
+      const response = await fetch('https://cryphos.com/api/organisation/tasks/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

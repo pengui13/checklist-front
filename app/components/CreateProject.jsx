@@ -27,7 +27,7 @@ export default function CreateProject({ isOpen, onClose, onSuccess }) {
 
   const fetchFirms = async () => {
     try {
-      const response = await fetch('http://localhost:8000/api/organisation/firms/', {
+      const response = await fetch('https://cryphos.com/api/organisation/firms/', {
         headers: {
           'Authorization': `Bearer ${Cookies.get('access_token')}`
         }
@@ -76,7 +76,7 @@ export default function CreateProject({ isOpen, onClose, onSuccess }) {
     }
 
     try {
-      const response = await fetch('http://localhost:8000/api/organisation/projects/', {
+      const response = await fetch('https://cryphos.com/api/organisation/projects/', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${Cookies.get('access_token')}`,

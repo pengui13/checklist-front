@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import Cookies from 'js-cookie';
 
-const API = 'http://localhost:8000/api';
+const API = 'https://cryphos.com/api';
 
 const normalizeHex = (v) =>
   String(v || '')

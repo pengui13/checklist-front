@@ -12,7 +12,7 @@ import CreateProject from '../components/CreateProject';
 import CreateTask from '../components/CreateTask';
 import Header from '../components/Header';
 
-const API = 'http://localhost:8000/api';
+const API = 'https://cryphos.com/api';
 
 function safeDate(d) {
   if (!d) return null;

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 
-const API = 'http://localhost:8000/api';
+const API = 'https://cryphos.com/api';
 
 function normalizeHex(input) {
   return (input || '')
