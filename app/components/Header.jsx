@@ -3,21 +3,62 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { authApi } from '../../api/ApiWrapper.jsx';
+import LoginModal from './LoginModal';
+import RegisterModal from './RegisterModal';
 
 function getInitials(user) {
   const s = user?.username || user?.email || '';
   return (s[0] || '?').toUpperCase();
 }
 
-export default function Header({ user, activeTab, setActiveTab }) {
-  const [menuOpen, setMenuOpen] = useState(false); // desktop profile dropdown
-  const [mobileOpen, setMobileOpen] = useState(false); // mobile/tablet expanded header
+function NavPill({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      type="button"
+      className={[
+        'rounded-full px-4 py-2 text-sm font-medium transition-all duration-200',
+        active
+          ? 'bg-black text-white shadow-sm'
+          : 'border border-black/10 bg-white text-black/70 hover:border-black/20 hover:text-black',
+      ].join(' ')}
+    >
+      {children}
+    </button>
+  );
+}
+
+export default function Header({ 
+  user, 
+  activeTab, 
+  setActiveTab,
+  // External modal control (optional)
+  loginOpen: externalLoginOpen,
+  registerOpen: externalRegisterOpen,
+  onOpenLogin: externalOpenLogin,
+  onOpenRegister: externalOpenRegister,
+  onCloseModals: externalCloseModals,
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  
+  // Internal modal state (used when external control not provided)
+  const [internalLoginOpen, setInternalLoginOpen] = useState(false);
+  const [internalRegisterOpen, setInternalRegisterOpen] = useState(false);
+  
   const router = useRouter();
   const pathname = usePathname();
 
   const btnRef = useRef(null);
   const menuRef = useRef(null);
+
+  // Determine if using external or internal modal control
+  const isExternalControl = externalOpenLogin !== undefined;
+  
+  const loginOpen = isExternalControl ? externalLoginOpen : internalLoginOpen;
+  const registerOpen = isExternalControl ? externalRegisterOpen : internalRegisterOpen;
 
   const roleLabel = useMemo(() => {
     return user?.is_creator ? 'Ersteller' : user?.is_admin ? 'Admin' : 'Benutzer';
@@ -25,9 +66,41 @@ export default function Header({ user, activeTab, setActiveTab }) {
 
   const firmName = user?.firm?.name || (typeof user?.firm === 'string' ? user.firm : '');
 
+  // Check if user is logged in
+  const isLoggedIn = !!user;
+
   const closeAll = () => {
     setMenuOpen(false);
     setMobileOpen(false);
+  };
+
+  const openLogin = () => {
+    if (isExternalControl) {
+      externalOpenLogin?.();
+    } else {
+      setInternalRegisterOpen(false);
+      setInternalLoginOpen(true);
+    }
+    closeAll();
+  };
+
+  const openRegister = () => {
+    if (isExternalControl) {
+      externalOpenRegister?.();
+    } else {
+      setInternalLoginOpen(false);
+      setInternalRegisterOpen(true);
+    }
+    closeAll();
+  };
+
+  const closeModals = () => {
+    if (isExternalControl) {
+      externalCloseModals?.();
+    } else {
+      setInternalLoginOpen(false);
+      setInternalRegisterOpen(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -36,18 +109,12 @@ export default function Header({ user, activeTab, setActiveTab }) {
     router.push('/');
   };
 
-  // IMPORTANT FIX:
-  // From /users, clicking "Aktuell/Projekte" must navigate to /dashboard and set tab.
   const goToTab = (tab) => {
     closeAll();
-
-    // If you are already on /dashboard, just switch state.
-    // Otherwise navigate to /dashboard with tab in query.
     if (pathname?.startsWith('/dashboard')) {
       if (typeof setActiveTab === 'function') setActiveTab(tab);
       return;
     }
-
     router.push(`/dashboard?tab=${encodeURIComponent(tab)}`);
   };
 
@@ -56,7 +123,6 @@ export default function Header({ user, activeTab, setActiveTab }) {
     router.push('/users');
   };
 
-  // Close on Escape + click outside desktop dropdown
   useEffect(() => {
     const anyOpen = menuOpen || mobileOpen;
     if (!anyOpen) return;
@@ -66,10 +132,7 @@ export default function Header({ user, activeTab, setActiveTab }) {
     };
 
     const onMouseDown = (e) => {
-      // if mobile is open, let overlay handle outside click
       if (mobileOpen) return;
-
-      // desktop dropdown outside click
       const t = e.target;
       if (menuRef.current?.contains(t)) return;
       if (btnRef.current?.contains(t)) return;
@@ -84,7 +147,6 @@ export default function Header({ user, activeTab, setActiveTab }) {
     };
   }, [menuOpen, mobileOpen]);
 
-  // Prevent background scroll when mobile sheet is open
   useEffect(() => {
     if (!mobileOpen) return;
     const prev = document.body.style.overflow;
@@ -94,309 +156,380 @@ export default function Header({ user, activeTab, setActiveTab }) {
     };
   }, [mobileOpen]);
 
-  // If route changes, close menus (prevents stuck overlays)
   useEffect(() => {
     closeAll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
 
   const showUsersNav = user?.is_creator || user?.is_admin;
   const onUsersPage = pathname === '/users' || pathname?.startsWith('/users/');
   const onDashboard = pathname === '/dashboard' || pathname?.startsWith('/dashboard');
 
-  const headerTitle = onUsersPage
-    ? 'Benutzerverwaltung'
-    : activeTab === 'aktuell'
-      ? 'Aktuell'
-      : activeTab === 'projekte'
-        ? 'Projekte'
-        : 'Dashboard';
-
   return (
     <>
-      {/* Overlay for mobile expanded header */}
       {mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/15 backdrop-blur-md"
-          style={{ backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)' }}
+          className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm"
           onClick={closeAll}
         />
       )}
 
-      {/* Overlay for desktop dropdown */}
       {menuOpen && !mobileOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/10 backdrop-blur-sm"
-          style={{ backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)' }}
+          className="fixed inset-0 z-40 bg-black/5 backdrop-blur-[2px]"
           onClick={() => setMenuOpen(false)}
         />
       )}
 
-      <header className="sticky top-0 z-50">
-        <div
-          className="border-b border-white/30 bg-white/70 backdrop-blur-2xl shadow-[0_8px_30px_rgba(0,0,0,0.06)]"
-          style={{ backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
-        >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
-            <div className="flex justify-between items-center gap-3">
-              {/* Desktop nav */}
-              <nav className="hidden lg:flex items-center gap-2">
-                <button
-                  onClick={() => goToTab('aktuell')}
-                  className={[
-                    'px-3 py-2 rounded-xl text-base font-medium transition',
-                    onDashboard && activeTab === 'aktuell'
-                      ? 'bg-black text-white shadow-sm'
-                      : 'text-gray-700 hover:bg-gray-200/60',
-                  ].join(' ')}
-                  type="button"
-                >
-                  Aktuell
-                </button>
-
-                <button
-                  onClick={() => goToTab('projekte')}
-                  className={[
-                    'px-3 py-2 rounded-xl text-base font-medium transition',
-                    onDashboard && activeTab === 'projekte'
-                      ? 'bg-black text-white shadow-sm'
-                      : 'text-gray-700 hover:bg-gray-200/60',
-                  ].join(' ')}
-                  type="button"
-                >
-                  Projekte
-                </button>
-
-                {showUsersNav && (
-                  <button
-                    onClick={goToUsers}
-                    className={[
-                      'px-3 py-2 rounded-xl text-base font-medium transition',
-                      onUsersPage ? 'bg-black text-white shadow-sm' : 'text-gray-700 hover:bg-gray-200/60',
-                    ].join(' ')}
-                    type="button"
-                  >
-                    Benutzerverwaltung
-                  </button>
-                )}
-              </nav>
-
-              {/* Mobile title */}
-              <div className="lg:hidden flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-2xl bg-black text-white flex items-center justify-center font-bold">
-                  P
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{headerTitle}</p>
-                  <p className="text-xs text-gray-600 truncate">{firmName || 'Organisation'}</p>
-                </div>
-              </div>
-
-              {/* Desktop user dropdown button */}
-              <div className="hidden lg:block relative">
-                <button
-                  ref={btnRef}
-                  onClick={() => setMenuOpen((v) => !v)}
-                  className="flex items-center gap-3 rounded-2xl px-3 py-2 hover:bg-gray-200/50 transition border border-white/30 bg-white/45"
-                  type="button"
-                  aria-haspopup="menu"
-                  aria-expanded={menuOpen}
-                >
-                  {user?.hex_color ? (
-                    <div
-                      className="w-10 h-10 rounded-full border border-gray-200 shadow-sm"
-                      style={{ backgroundColor: `#${user.hex_color}` }}
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold">
-                      {getInitials(user)}
-                    </div>
-                  )}
-
-                  <div className="text-right leading-tight">
-                    <p className="text-sm font-semibold text-gray-900">{user?.username}</p>
-                    {firmName && <p className="text-xs text-gray-600">{firmName}</p>}
-                    <p className="text-xs text-gray-500">{roleLabel}</p>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5 pl-1">
-                    <span className="block w-5 h-0.5 bg-gray-800 rounded" />
-                    <span className="block w-5 h-0.5 bg-gray-800 rounded opacity-80" />
-                    <span className="block w-5 h-0.5 bg-gray-800 rounded opacity-60" />
-                  </div>
-                </button>
-              </div>
-
-              {/* Mobile/Tablet expand button */}
-              <button
-                className="lg:hidden inline-flex items-center justify-center w-11 h-11 rounded-2xl border border-white/30 bg-white/45 hover:bg-gray-200/50 transition"
-                type="button"
-                onClick={() => setMobileOpen((v) => !v)}
-                aria-expanded={mobileOpen}
-                aria-label="Menü"
-              >
-                <div className="flex flex-col gap-1.5">
-                  <span className={`block w-5 h-0.5 bg-gray-900 rounded transition ${mobileOpen ? 'translate-y-2 rotate-45' : ''}`} />
-                  <span className={`block w-5 h-0.5 bg-gray-900 rounded transition ${mobileOpen ? 'opacity-0' : 'opacity-80'}`} />
-                  <span className={`block w-5 h-0.5 bg-gray-900 rounded transition ${mobileOpen ? '-translate-y-2 -rotate-45' : 'opacity-60'}`} />
-                </div>
-              </button>
+      <header className="sticky top-0 z-50 border-b border-black/5 bg-white/80 backdrop-blur-xl">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+          {/* Logo & Brand */}
+          <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-3" onClick={closeAll}>
+            <div className="grid h-11 w-11 place-items-center rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
+              <Image
+                src="/logo.png"
+                alt="Logo"
+                width={28}
+                height={28}
+                className="h-7 w-7 object-contain"
+              />
             </div>
+            <div className="leading-tight">
+              <div className="text-sm font-semibold tracking-tight text-black">
+                {firmName || 'Cryphos'}
+              </div>
+              <div className="text-xs text-black/50">Checklisten Manager</div>
+            </div>
+          </Link>
+
+          {/* Desktop Navigation - Only show when logged in */}
+          {isLoggedIn ? (
+            <nav className="hidden items-center gap-2 md:flex">
+              <NavPill
+                active={onDashboard && activeTab === 'aktuell'}
+                onClick={() => goToTab('aktuell')}
+              >
+                Aktuell
+              </NavPill>
+              <NavPill
+                active={onDashboard && activeTab === 'projekte'}
+                onClick={() => goToTab('projekte')}
+              >
+                Projekte
+              </NavPill>
+              {showUsersNav && (
+                <NavPill active={onUsersPage} onClick={goToUsers}>
+                  Benutzer
+                </NavPill>
+              )}
+            </nav>
+          ) : (
+            <nav className="hidden items-center gap-2 md:flex">
+              <span className="inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-black/70 shadow-sm">
+                Einfach
+              </span>
+              <span className="inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-black/70 shadow-sm">
+                Schnell
+              </span>
+              <span className="inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-black/70 shadow-sm">
+                Sicher
+              </span>
+            </nav>
+          )}
+
+          {/* Desktop User Menu / Auth Buttons */}
+          <div className="hidden items-center gap-2 md:flex">
+            {isLoggedIn ? (
+              <button
+                ref={btnRef}
+                onClick={() => setMenuOpen((v) => !v)}
+                type="button"
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="flex items-center gap-3 rounded-full border border-black/10 bg-white px-3 py-1.5 shadow-sm transition hover:border-black/20"
+              >
+                {user?.hex_color ? (
+                  <div
+                    className="h-8 w-8 rounded-full border border-black/10"
+                    style={{ backgroundColor: `#${user.hex_color}` }}
+                  />
+                ) : (
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-black text-sm font-medium text-white">
+                    {getInitials(user)}
+                  </div>
+                )}
+                <span className="text-sm font-medium text-black/80">{user?.username}</span>
+                <svg
+                  className={`h-4 w-4 text-black/40 transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={openLogin}
+                  className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-medium text-black/80 shadow-sm transition hover:border-black/20"
+                >
+                  Anmelden
+                </button>
+                <button
+                  onClick={openRegister}
+                  className="rounded-full bg-black px-4 py-2 text-sm font-medium text-white shadow-sm transition hover:opacity-90"
+                >
+                  Registrieren
+                </button>
+              </>
+            )}
           </div>
 
-          <div className="h-px bg-gradient-to-r from-transparent via-gray-200/70 to-transparent" />
-
-          {/* Mobile/Tablet expandable sheet */}
-          <div
-            className={[
-              'lg:hidden overflow-hidden',
-              'transition-all duration-300 ease-out',
-              mobileOpen ? 'max-h-[560px] opacity-100' : 'max-h-0 opacity-0',
-            ].join(' ')}
+          {/* Mobile Menu Button */}
+          <button
+            className="grid h-11 w-11 place-items-center rounded-2xl border border-black/10 bg-white shadow-sm md:hidden"
+            type="button"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-expanded={mobileOpen}
+            aria-label="Menü"
           >
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-4">
-              <div
-                className={[
-                  'rounded-2xl border border-white/40 bg-white/80 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.10)]',
-                  'transition-transform duration-300 ease-out',
-                  mobileOpen ? 'translate-y-0' : '-translate-y-2',
-                ].join(' ')}
-                style={{ backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
-              >
-                {/* User summary */}
-                <div className="p-4 border-b border-gray-200/70 flex items-center gap-3">
+            <div className="flex flex-col gap-1">
+              <span
+                className={`block h-0.5 w-5 rounded-full bg-black transition-all duration-200 ${
+                  mobileOpen ? 'translate-y-1.5 rotate-45' : ''
+                }`}
+              />
+              <span
+                className={`block h-0.5 w-5 rounded-full bg-black transition-all duration-200 ${
+                  mobileOpen ? 'opacity-0' : ''
+                }`}
+              />
+              <span
+                className={`block h-0.5 w-5 rounded-full bg-black transition-all duration-200 ${
+                  mobileOpen ? '-translate-y-1.5 -rotate-45' : ''
+                }`}
+              />
+            </div>
+          </button>
+        </div>
+
+        {/* Mobile Menu Expanded */}
+        <div
+          className={[
+            'overflow-hidden border-t border-black/5 md:hidden',
+            'transition-all duration-300 ease-out',
+            mobileOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0',
+          ].join(' ')}
+        >
+          <div className="mx-auto max-w-6xl px-6 py-4">
+            {isLoggedIn ? (
+              <>
+                {/* User Info */}
+                <div className="mb-4 flex items-center gap-3 rounded-2xl border border-black/10 bg-black/[0.02] p-4">
                   {user?.hex_color ? (
                     <div
-                      className="w-11 h-11 rounded-full border border-gray-200 shadow-sm shrink-0"
+                      className="h-10 w-10 shrink-0 rounded-full border border-black/10"
                       style={{ backgroundColor: `#${user.hex_color}` }}
                     />
                   ) : (
-                    <div className="w-11 h-11 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold shrink-0">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-black text-sm font-semibold text-white">
                       {getInitials(user)}
                     </div>
                   )}
-
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{user?.username}</p>
-                    <p className="text-xs text-gray-600 truncate">{user?.email}</p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {firmName ? `Firma: ${firmName} • ${roleLabel}` : roleLabel}
-                    </p>
+                    <p className="truncate text-sm font-semibold text-black">{user?.username}</p>
+                    <p className="truncate text-xs text-black/50">{user?.email}</p>
                   </div>
-
-                  <span className="text-[11px] px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-700">
+                  <span className="shrink-0 rounded-full border border-black/10 bg-white px-2 py-0.5 text-[11px] font-medium text-black/60">
                     {roleLabel}
                   </span>
                 </div>
 
-                {/* Tabs/actions */}
-                <div className="p-2">
+                {/* Navigation Items */}
+                <div className="space-y-1">
                   <button
                     onClick={() => goToTab('aktuell')}
-                    className={[
-                      'w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition',
-                      onDashboard && activeTab === 'aktuell' ? 'bg-black text-white' : 'text-gray-800 hover:bg-gray-100',
-                    ].join(' ')}
                     type="button"
+                    className={[
+                      'w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition',
+                      onDashboard && activeTab === 'aktuell'
+                        ? 'bg-black text-white'
+                        : 'text-black/70 hover:bg-black/5',
+                    ].join(' ')}
                   >
                     Aktuell
                   </button>
-
                   <button
                     onClick={() => goToTab('projekte')}
-                    className={[
-                      'w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition mt-1',
-                      onDashboard && activeTab === 'projekte' ? 'bg-black text-white' : 'text-gray-800 hover:bg-gray-100',
-                    ].join(' ')}
                     type="button"
+                    className={[
+                      'w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition',
+                      onDashboard && activeTab === 'projekte'
+                        ? 'bg-black text-white'
+                        : 'text-black/70 hover:bg-black/5',
+                    ].join(' ')}
                   >
                     Projekte
                   </button>
-
                   {showUsersNav && (
                     <button
                       onClick={goToUsers}
-                      className={[
-                        'w-full text-left px-4 py-3 rounded-xl text-sm font-medium transition mt-1',
-                        onUsersPage ? 'bg-black text-white' : 'text-gray-800 hover:bg-gray-100',
-                      ].join(' ')}
                       type="button"
+                      className={[
+                        'w-full rounded-xl px-4 py-3 text-left text-sm font-medium transition',
+                        onUsersPage ? 'bg-black text-white' : 'text-black/70 hover:bg-black/5',
+                      ].join(' ')}
                     >
                       Benutzerverwaltung
                     </button>
                   )}
                 </div>
 
-                <div className="border-t border-gray-200/70">
-                  <Link href="/profile" onClick={closeAll} className="block px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-100 transition">
+                {/* Divider */}
+                <div className="my-3 h-px bg-black/10" />
+
+                {/* Settings & Logout */}
+                <div className="space-y-1">
+                  <Link
+                    href="/profile"
+                    onClick={closeAll}
+                    className="block rounded-xl px-4 py-3 text-sm font-medium text-black/70 transition hover:bg-black/5"
+                  >
                     Profil
                   </Link>
-                  <Link href="/settings" onClick={closeAll} className="block px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-100 transition">
+                  <Link
+                    href="/settings"
+                    onClick={closeAll}
+                    className="block rounded-xl px-4 py-3 text-sm font-medium text-black/70 transition hover:bg-black/5"
+                  >
                     Einstellungen
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="w-full text-left px-4 py-3 text-sm font-medium text-red-700 hover:bg-red-50 transition"
                     type="button"
+                    className="w-full rounded-xl px-4 py-3 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
                   >
                     Abmelden
                   </button>
                 </div>
-              </div>
-            </div>
+              </>
+            ) : (
+              <>
+                {/* Guest Mobile Menu */}
+                <div className="space-y-3">
+                  <button
+                    onClick={openLogin}
+                    className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-medium text-black/80 transition hover:border-black/20"
+                  >
+                    Anmelden
+                  </button>
+                  <button
+                    onClick={openRegister}
+                    className="w-full rounded-xl bg-black px-4 py-3 text-sm font-medium text-white transition hover:opacity-90"
+                  >
+                    Registrieren
+                  </button>
+                </div>
+
+                {/* Feature Pills */}
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-black/70 shadow-sm">
+                    Einfach
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-black/70 shadow-sm">
+                    Schnell
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-black/10 bg-white px-3 py-1 text-xs font-medium text-black/70 shadow-sm">
+                    Sicher
+                  </span>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </header>
 
-      {/* Desktop dropdown menu */}
-      {menuOpen && !mobileOpen && (
-        <div className="fixed right-4 sm:right-6 top-[76px] z-[60] w-72">
+      {/* Desktop Dropdown Menu - Only when logged in */}
+      {isLoggedIn && menuOpen && !mobileOpen && (
+        <div className="fixed right-6 top-[72px] z-[60] w-64">
           <div
             ref={menuRef}
-            className="rounded-2xl border border-white/50 bg-white/92 backdrop-blur-2xl shadow-[0_20px_60px_rgba(0,0,0,0.18)] overflow-hidden"
-            style={{ backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)' }}
+            className="overflow-hidden rounded-2xl border border-black/10 bg-white shadow-xl"
             role="menu"
           >
-            <div className="px-4 py-3 border-b border-gray-200/70">
+            {/* User Info */}
+            <div className="border-b border-black/5 p-4">
               <div className="flex items-center gap-3">
                 {user?.hex_color ? (
-                  <div className="w-9 h-9 rounded-full border border-gray-200 shadow-sm" style={{ backgroundColor: `#${user.hex_color}` }} />
+                  <div
+                    className="h-9 w-9 rounded-full border border-black/10"
+                    style={{ backgroundColor: `#${user.hex_color}` }}
+                  />
                 ) : (
-                  <div className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-sm">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-black text-sm font-semibold text-white">
                     {getInitials(user)}
                   </div>
                 )}
-
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-gray-900 truncate">{user?.username}</p>
-                  <p className="text-xs text-gray-600 truncate">{user?.email}</p>
+                  <p className="truncate text-sm font-semibold text-black">{user?.username}</p>
+                  <p className="truncate text-xs text-black/50">{user?.email}</p>
                 </div>
-
-                <span className="shrink-0 text-[11px] px-2 py-0.5 rounded-full border border-gray-200 bg-gray-50 text-gray-700">
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="rounded-full border border-black/10 bg-black/[0.02] px-2 py-0.5 text-[11px] font-medium text-black/60">
                   {roleLabel}
                 </span>
+                {firmName && (
+                  <span className="truncate text-[11px] text-black/40">{firmName}</span>
+                )}
               </div>
-
-              {firmName && <p className="mt-2 text-xs text-gray-600 truncate">Firma: {firmName}</p>}
             </div>
 
-            <div className="py-2">
-              <Link href="/profile" onClick={closeAll} className="block px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 transition" role="menuitem">
+            {/* Menu Items */}
+            <div className="p-2">
+              <Link
+                href="/profile"
+                onClick={closeAll}
+                className="block rounded-xl px-3 py-2.5 text-sm font-medium text-black/70 transition hover:bg-black/5"
+                role="menuitem"
+              >
                 Profil
               </Link>
-              <Link href="/settings" onClick={closeAll} className="block px-4 py-2.5 text-sm text-gray-800 hover:bg-gray-100 transition" role="menuitem">
+              <Link
+                href="/settings"
+                onClick={closeAll}
+                className="block rounded-xl px-3 py-2.5 text-sm font-medium text-black/70 transition hover:bg-black/5"
+                role="menuitem"
+              >
                 Einstellungen
               </Link>
             </div>
 
-            <div className="border-t border-gray-200/70 py-2">
-              <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-700 hover:bg-red-50 transition" type="button" role="menuitem">
+            <div className="border-t border-black/5 p-2">
+              <button
+                onClick={handleLogout}
+                type="button"
+                className="w-full rounded-xl px-3 py-2.5 text-left text-sm font-medium text-red-600 transition hover:bg-red-50"
+                role="menuitem"
+              >
                 Abmelden
               </button>
             </div>
           </div>
         </div>
       )}
+
+      <LoginModal
+        isOpen={loginOpen}
+        onClose={closeModals}
+        onSwitchToRegister={openRegister}
+      />
+      <RegisterModal
+        isOpen={registerOpen}
+        onClose={closeModals}
+        onSwitchToLogin={openLogin}
+      />
     </>
   );
 }

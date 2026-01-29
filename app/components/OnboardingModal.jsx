@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useMemo, useState } from 'react';
 import Cookies from 'js-cookie';
 
@@ -10,21 +12,70 @@ const normalizeHex = (v) =>
     .toUpperCase()
     .slice(0, 6);
 
+function classNames(...xs) {
+  return xs.filter(Boolean).join(' ');
+}
+
+// Icons
+const CheckIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+const ChevronRightIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+  </svg>
+);
+
+const ChevronLeftIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+  </svg>
+);
+
+const BuildingIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+  </svg>
+);
+
+const UserIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+  </svg>
+);
+
+const SparklesIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+  </svg>
+);
+
+const AlertIcon = ({ className = '' }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+  </svg>
+);
+
+const Spinner = ({ className = '' }) => (
+  <svg className={classNames('animate-spin', className)} viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+  </svg>
+);
+
 const OnboardingModal = ({ isOpen, onClose }) => {
   const [page, setPage] = useState(1);
-
   const [userType, setUserType] = useState(null);
   const [firmAction, setFirmAction] = useState(null);
-
   const [firms, setFirms] = useState([]);
   const [selectedFirmId, setSelectedFirmId] = useState(null);
   const [newFirmName, setNewFirmName] = useState('');
-
   const [hexColor, setHexColor] = useState('000000');
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
   const [user, setUser] = useState(null);
 
   const hasFirm = useMemo(() => Boolean(user?.firm), [user]);
@@ -33,6 +84,12 @@ const OnboardingModal = ({ isOpen, onClose }) => {
   const steps = useMemo(() => {
     return hasColor ? [1, 2] : [1, 2, 3];
   }, [hasColor]);
+
+  const stepTitles = {
+    1: 'Ihre Rolle',
+    2: firmAction === 'join' ? 'Firma beitreten' : 'Firma erstellen',
+    3: 'Farbe wählen',
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -88,7 +145,7 @@ const OnboardingModal = ({ isOpen, onClose }) => {
       const data = await response.json();
       setFirms(Array.isArray(data) ? data : data?.results || []);
     } catch (err) {
-      setError('Failed to load firms');
+      setError('Firmen konnten nicht geladen werden');
       console.error('Error fetching firms:', err);
     }
   };
@@ -216,81 +273,127 @@ const OnboardingModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
-  const inputClass = "w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-900 transition-all bg-white text-gray-900 placeholder:text-gray-400";
+  const presetColors = [
+    'EF4444', 'F97316', 'F59E0B', 'EAB308', '84CC16', '22C55E', '14B8A6', '06B6D4',
+    '3B82F6', '6366F1', '8B5CF6', 'A855F7', 'D946EF', 'EC4899', 'F43F5E', '000000',
+  ];
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-8 py-5 rounded-t-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      {/* Backdrop */}
+      <div 
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        style={{ animation: 'fadeIn 0.2s ease-out' }}
+      />
+
+      {/* Modal */}
+      <div
+        className="relative w-full max-w-lg rounded-3xl border border-black/10 bg-white shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] overflow-hidden"
+        style={{ animation: 'slideUp 0.3s ease-out' }}
+      >
+        {/* CSS Animations */}
+        <style jsx>{`
+          @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+          }
+          @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+          }
+        `}</style>
+
+        {/* Progress Header */}
+        <div className="border-b border-black/5 bg-white/80 backdrop-blur-xl px-8 py-6">
           <div className="flex items-center justify-center gap-3">
             {steps.map((step, idx) => (
               <React.Fragment key={step}>
                 <div
-                  className={`w-9 h-9 rounded-full flex items-center justify-center font-medium text-sm transition-all ${
-                    page >= step 
-                      ? 'bg-gray-900 text-white' 
-                      : 'bg-gray-100 text-gray-400 border border-gray-200'
-                  }`}
+                  className={classNames(
+                    'flex h-10 w-10 items-center justify-center rounded-full text-sm font-medium transition-all duration-300',
+                    page >= step
+                      ? 'bg-black text-white shadow-sm'
+                      : 'border border-black/10 bg-white text-black/40'
+                  )}
                 >
                   {page > step ? (
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                    </svg>
+                    <CheckIcon className="h-4 w-4" />
                   ) : (
                     step
                   )}
                 </div>
                 {idx < steps.length - 1 && (
-                  <div className={`w-12 h-0.5 rounded-full transition-all ${page > step ? 'bg-gray-900' : 'bg-gray-200'}`} />
+                  <div
+                    className={classNames(
+                      'h-0.5 w-12 rounded-full transition-all duration-500',
+                      page > step ? 'bg-black' : 'bg-black/10'
+                    )}
+                  />
                 )}
               </React.Fragment>
             ))}
           </div>
-          <p className="mt-3 text-sm text-gray-500 text-center">
-            {page === 1 && 'Ihre Rolle'}
-            {page === 2 && (firmAction === 'join' ? 'Firma beitreten' : 'Firma erstellen')}
-            {page === 3 && 'Farbe wählen'}
+          <p className="mt-3 text-center text-sm text-black/50">
+            {stepTitles[page]}
           </p>
         </div>
 
+        {/* Content */}
         <div className="p-8">
+          {/* Error Message */}
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 text-sm flex gap-3">
-              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              <span>{error}</span>
+            <div className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+              <AlertIcon className="h-5 w-5 flex-shrink-0 text-red-500 mt-0.5" />
+              <span className="text-sm text-red-700">{error}</span>
             </div>
           )}
 
+          {/* Page 1: Role Selection */}
           {page === 1 && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-semibold text-gray-900">Willkommen!</h2>
-                <p className="text-gray-500 mt-1">Wie möchten Sie sich anmelden?</p>
+              <div className="text-center">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-black/10 bg-black/[0.02]">
+                  <SparklesIcon className="h-8 w-8 text-black/70" />
+                </div>
+                <h2 className="text-2xl font-semibold tracking-tight text-black">Willkommen!</h2>
+                <p className="mt-2 text-sm text-black/60">Wie möchten Sie Cryphos nutzen?</p>
               </div>
 
               <div className="space-y-3">
                 <button
                   type="button"
                   onClick={() => setUserType('angestellte')}
-                  className={`w-full p-5 rounded-xl border transition-all text-left ${
+                  className={classNames(
+                    'group w-full rounded-2xl border p-5 text-left transition-all duration-200',
                     userType === 'angestellte'
-                      ? 'border-gray-900 bg-gray-50'
-                      : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                  }`}
+                      ? 'border-black bg-black/[0.02] shadow-sm'
+                      : 'border-black/10 hover:border-black/20 hover:bg-black/[0.01]'
+                  )}
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                        userType === 'angestellte' ? 'border-gray-900' : 'border-gray-300'
-                      }`}
+                      className={classNames(
+                        'flex h-12 w-12 items-center justify-center rounded-xl border transition-all duration-200',
+                        userType === 'angestellte'
+                          ? 'border-black bg-black text-white'
+                          : 'border-black/10 bg-white text-black/60 group-hover:border-black/20'
+                      )}
                     >
-                      {userType === 'angestellte' && <div className="w-2.5 h-2.5 rounded-full bg-gray-900" />}
+                      <UserIcon className="h-6 w-6" />
                     </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Ich bin Angestellte/r</h3>
-                      <p className="text-sm text-gray-500 mt-0.5">Einer bestehenden Firma beitreten</p>
+                    <div className="flex-1">
+                      <h3 className="font-medium text-black">Ich bin Angestellte/r</h3>
+                      <p className="mt-0.5 text-sm text-black/50">Einer bestehenden Firma beitreten</p>
+                    </div>
+                    <div
+                      className={classNames(
+                        'flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all duration-200',
+                        userType === 'angestellte'
+                          ? 'border-black bg-black'
+                          : 'border-black/20'
+                      )}
+                    >
+                      {userType === 'angestellte' && <CheckIcon className="h-3.5 w-3.5 text-white" />}
                     </div>
                   </div>
                 </button>
@@ -298,23 +401,37 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={() => setUserType('unternehmer')}
-                  className={`w-full p-5 rounded-xl border transition-all text-left ${
+                  className={classNames(
+                    'group w-full rounded-2xl border p-5 text-left transition-all duration-200',
                     userType === 'unternehmer'
-                      ? 'border-gray-900 bg-gray-50'
-                      : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                  }`}
+                      ? 'border-black bg-black/[0.02] shadow-sm'
+                      : 'border-black/10 hover:border-black/20 hover:bg-black/[0.01]'
+                  )}
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
-                        userType === 'unternehmer' ? 'border-gray-900' : 'border-gray-300'
-                      }`}
+                      className={classNames(
+                        'flex h-12 w-12 items-center justify-center rounded-xl border transition-all duration-200',
+                        userType === 'unternehmer'
+                          ? 'border-black bg-black text-white'
+                          : 'border-black/10 bg-white text-black/60 group-hover:border-black/20'
+                      )}
                     >
-                      {userType === 'unternehmer' && <div className="w-2.5 h-2.5 rounded-full bg-gray-900" />}
+                      <BuildingIcon className="h-6 w-6" />
                     </div>
-                    <div>
-                      <h3 className="font-medium text-gray-900">Ich habe eine Firma</h3>
-                      <p className="text-sm text-gray-500 mt-0.5">Eine neue Firma erstellen</p>
+                    <div className="flex-1">
+                      <h3 className="font-medium text-black">Ich habe eine Firma</h3>
+                      <p className="mt-0.5 text-sm text-black/50">Eine neue Firma erstellen</p>
+                    </div>
+                    <div
+                      className={classNames(
+                        'flex h-6 w-6 items-center justify-center rounded-full border-2 transition-all duration-200',
+                        userType === 'unternehmer'
+                          ? 'border-black bg-black'
+                          : 'border-black/20'
+                      )}
+                    >
+                      {userType === 'unternehmer' && <CheckIcon className="h-3.5 w-3.5 text-white" />}
                     </div>
                   </div>
                 </button>
@@ -324,44 +441,41 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                 type="button"
                 onClick={handlePage1Continue}
                 disabled={!userType}
-                className="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-medium disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="group w-full rounded-full bg-black py-3.5 text-sm font-medium text-white shadow-sm transition-all hover:opacity-90 disabled:bg-black/20 disabled:text-black/40 disabled:cursor-not-allowed"
               >
-                Weiter
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
+                <span className="flex items-center justify-center gap-2">
+                  Weiter
+                  <ChevronRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </span>
               </button>
             </div>
           )}
 
+          {/* Page 2: Firm Selection/Creation */}
           {page === 2 && (
             <div className="space-y-6">
               <button
                 type="button"
                 onClick={() => setPage(1)}
-                className="text-gray-500 hover:text-gray-900 flex items-center gap-1.5 text-sm font-medium transition-colors"
                 disabled={loading}
+                className="flex items-center gap-1.5 text-sm font-medium text-black/50 transition-colors hover:text-black disabled:opacity-50"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
+                <ChevronLeftIcon className="h-4 w-4" />
                 Zurück
               </button>
 
               {firmAction === 'join' ? (
                 <>
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Firma auswählen</h2>
-                    <p className="text-gray-500 mt-1">Wählen Sie die Firma, der Sie beitreten möchten</p>
+                    <h2 className="text-xl font-semibold tracking-tight text-black">Firma auswählen</h2>
+                    <p className="mt-1 text-sm text-black/60">Wählen Sie die Firma, der Sie beitreten möchten</p>
                   </div>
 
-                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                  <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
                     {firms.length === 0 ? (
-                      <div className="text-gray-400 text-center py-12 bg-gray-50 rounded-xl border border-gray-200">
-                        <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                        <p>Keine Firmen verfügbar</p>
+                      <div className="rounded-2xl border border-black/10 bg-black/[0.02] py-12 text-center">
+                        <BuildingIcon className="mx-auto h-12 w-12 text-black/20" />
+                        <p className="mt-3 text-sm text-black/40">Keine Firmen verfügbar</p>
                       </div>
                     ) : (
                       firms.map((firm) => (
@@ -369,25 +483,24 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                           type="button"
                           key={firm.id}
                           onClick={() => setSelectedFirmId(firm.id)}
-                          className={`w-full p-4 rounded-xl border transition-all text-left ${
-                            selectedFirmId === firm.id
-                              ? 'border-gray-900 bg-gray-50'
-                              : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
-                          }`}
                           disabled={loading}
+                          className={classNames(
+                            'w-full rounded-2xl border p-4 text-left transition-all duration-200',
+                            selectedFirmId === firm.id
+                              ? 'border-black bg-black/[0.02] shadow-sm'
+                              : 'border-black/10 hover:border-black/20 hover:bg-black/[0.01]'
+                          )}
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <h4 className="font-medium text-gray-900">{firm.name}</h4>
+                              <h4 className="font-medium text-black">{firm.name}</h4>
                               {firm.workers && (
-                                <p className="text-sm text-gray-500 mt-0.5">{firm.workers} Mitarbeiter</p>
+                                <p className="mt-0.5 text-sm text-black/50">{firm.workers} Mitarbeiter</p>
                               )}
                             </div>
                             {selectedFirmId === firm.id && (
-                              <div className="w-5 h-5 rounded-full bg-gray-900 flex items-center justify-center">
-                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
+                              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-black">
+                                <CheckIcon className="h-3.5 w-3.5 text-white" />
                               </div>
                             )}
                           </div>
@@ -399,12 +512,12 @@ const OnboardingModal = ({ isOpen, onClose }) => {
               ) : (
                 <>
                   <div>
-                    <h2 className="text-xl font-semibold text-gray-900">Neue Firma erstellen</h2>
-                    <p className="text-gray-500 mt-1">Geben Sie den Namen Ihrer Firma ein</p>
+                    <h2 className="text-xl font-semibold tracking-tight text-black">Neue Firma erstellen</h2>
+                    <p className="mt-1 text-sm text-black/60">Geben Sie den Namen Ihrer Firma ein</p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    <label className="mb-2 block text-sm font-medium text-black/70">
                       Firmenname <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -412,8 +525,8 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                       placeholder="z.B. Meine Firma GmbH"
                       value={newFirmName}
                       onChange={(e) => setNewFirmName(e.target.value)}
-                      className={inputClass}
                       disabled={loading}
+                      className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-black placeholder:text-black/30 transition-all focus:border-black/30 focus:outline-none focus:ring-2 focus:ring-black/5"
                     />
                   </div>
                 </>
@@ -427,65 +540,62 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                   (firmAction === 'join' && !selectedFirmId) ||
                   (firmAction === 'create' && !newFirmName.trim())
                 }
-                className="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-medium disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="group w-full rounded-full bg-black py-3.5 text-sm font-medium text-white shadow-sm transition-all hover:opacity-90 disabled:bg-black/20 disabled:text-black/40 disabled:cursor-not-allowed"
               >
                 {loading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>Wird verarbeitet...</span>
-                  </>
+                  <span className="flex items-center justify-center gap-2">
+                    <Spinner className="h-4 w-4" />
+                    Wird verarbeitet...
+                  </span>
                 ) : (
-                  <>
+                  <span className="flex items-center justify-center gap-2">
                     Weiter
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                    </svg>
-                  </>
+                    <ChevronRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                  </span>
                 )}
               </button>
             </div>
           )}
 
+          {/* Page 3: Color Selection */}
           {page === 3 && (
             <div className="space-y-6">
               {hasFirm && (
                 <button
                   type="button"
                   onClick={() => setPage(2)}
-                  className="text-gray-500 hover:text-gray-900 flex items-center gap-1.5 text-sm font-medium transition-colors"
                   disabled={loading}
+                  className="flex items-center gap-1.5 text-sm font-medium text-black/50 transition-colors hover:text-black disabled:opacity-50"
                 >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
+                  <ChevronLeftIcon className="h-4 w-4" />
                   Zurück
                 </button>
               )}
 
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Wählen Sie Ihre Farbe</h2>
-                <p className="text-gray-500 mt-1">Diese Farbe identifiziert Sie in Projekten</p>
+                <h2 className="text-xl font-semibold tracking-tight text-black">Wählen Sie Ihre Farbe</h2>
+                <p className="mt-1 text-sm text-black/60">Diese Farbe identifiziert Sie in Projekten</p>
               </div>
 
               <div className="space-y-5">
-                <div className="flex gap-4 items-start">
+                {/* Color Picker Row */}
+                <div className="flex items-center gap-4">
+                  {/* Color Input */}
                   <div className="relative">
                     <input
                       type="color"
                       value={`#${normalizeHex(hexColor).padEnd(6, '0')}`}
                       onChange={(e) => setHexColor(normalizeHex(e.target.value))}
-                      className="w-20 h-20 rounded-xl cursor-pointer border border-gray-300 bg-white"
                       disabled={loading}
+                      className="h-16 w-16 cursor-pointer rounded-2xl border border-black/10 bg-white p-1"
                     />
                   </div>
 
+                  {/* Hex Input */}
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Hex-Code</label>
+                    <label className="mb-1.5 block text-sm font-medium text-black/70">Hex-Code</label>
                     <div className="flex">
-                      <span className="flex items-center justify-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-xl text-gray-500 font-mono text-sm">
+                      <span className="flex items-center justify-center rounded-l-xl border border-r-0 border-black/10 bg-black/[0.02] px-3 font-mono text-sm text-black/50">
                         #
                       </span>
                       <input
@@ -494,39 +604,39 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                         onChange={(e) => setHexColor(normalizeHex(e.target.value))}
                         maxLength={6}
                         placeholder="000000"
-                        className="flex-1 px-4 py-2.5 border border-gray-300 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-900 font-mono text-sm transition-all bg-white text-gray-900 placeholder:text-gray-400"
                         disabled={loading}
+                        className="flex-1 rounded-r-xl border border-black/10 bg-white px-3 py-2.5 font-mono text-sm text-black placeholder:text-black/30 transition-all focus:border-black/30 focus:outline-none focus:ring-2 focus:ring-black/5"
                       />
                     </div>
                   </div>
 
+                  {/* Preview */}
                   <div
-                    className="w-20 h-20 rounded-xl border border-gray-300 shadow-inner flex-shrink-0"
+                    className="h-16 w-16 flex-shrink-0 rounded-2xl border border-black/10 shadow-inner"
                     style={{ backgroundColor: `#${normalizeHex(hexColor).padEnd(6, '0')}` }}
                   />
                 </div>
 
+                {/* Preset Colors */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="mb-3 block text-sm font-medium text-black/70">
                     Oder wählen Sie eine Vorlage:
                   </label>
                   <div className="grid grid-cols-8 gap-2">
-                    {[
-                      'EF4444', 'F97316', 'EAB308', '22C55E', '3B82F6', '6366F1', 'A855F7', '000000',
-                      'EC4899', '14B8A6', 'F59E0B', 'F87171', '4ADE80', '60A5FA', 'C084FC', '6B7280',
-                    ].map((color) => (
+                    {presetColors.map((color) => (
                       <button
                         type="button"
                         key={color}
                         onClick={() => setHexColor(color)}
-                        className={`aspect-square rounded-lg border-2 transition-all hover:scale-105 ${
-                          normalizeHex(hexColor) === color 
-                            ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-2' 
-                            : 'border-transparent hover:border-gray-300'
-                        }`}
+                        disabled={loading}
+                        className={classNames(
+                          'aspect-square rounded-xl border-2 transition-all duration-200 hover:scale-110',
+                          normalizeHex(hexColor) === color
+                            ? 'border-black ring-2 ring-black ring-offset-2'
+                            : 'border-transparent hover:border-black/20'
+                        )}
                         style={{ backgroundColor: `#${color}` }}
                         title={`#${color}`}
-                        disabled={loading}
                       />
                     ))}
                   </div>
@@ -537,23 +647,18 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                 type="button"
                 onClick={handleColorSubmit}
                 disabled={loading || normalizeHex(hexColor).length !== 6}
-                className="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-medium disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="group w-full rounded-full bg-black py-3.5 text-sm font-medium text-white shadow-sm transition-all hover:opacity-90 disabled:bg-black/20 disabled:text-black/40 disabled:cursor-not-allowed"
               >
                 {loading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    <span>Wird gespeichert...</span>
-                  </>
+                  <span className="flex items-center justify-center gap-2">
+                    <Spinner className="h-4 w-4" />
+                    Wird gespeichert...
+                  </span>
                 ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+                  <span className="flex items-center justify-center gap-2">
+                    <CheckIcon className="h-4 w-4" />
                     Fertig
-                  </>
+                  </span>
                 )}
               </button>
             </div>
