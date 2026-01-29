@@ -20,7 +20,7 @@ export default function CreateUserModal({ onClose, onSuccess }) {
     first_name: '',
     last_name: '',
     hex_color: '000000',
-    is_firm_admin: false,
+    is_admin: false,
   });
 
   const [loading, setLoading] = useState(false);
@@ -265,15 +265,15 @@ export default function CreateUserModal({ onClose, onSuccess }) {
 
                 <button
                   type="button"
-                  onClick={() => setFormData({ ...formData, is_firm_admin: !formData.is_firm_admin })}
+                  onClick={() => setFormData({ ...formData, is_admin: !formData.is_admin })}
                   className={`relative inline-flex h-7 w-12 items-center rounded-full transition
-                    ${formData.is_firm_admin ? 'bg-black' : 'bg-gray-200'}`}
-                  aria-pressed={formData.is_firm_admin}
+                    ${formData.is_admin ? 'bg-black' : 'bg-gray-200'}`}
+                  aria-pressed={formData.is_admin}
                   aria-label="Admin-Rechte umschalten"
                 >
                   <span
                     className={`inline-block h-5 w-5 transform rounded-full bg-white transition
-                      ${formData.is_firm_admin ? 'translate-x-6' : 'translate-x-1'}`}
+                      ${formData.is_admin ? 'translate-x-6' : 'translate-x-1'}`}
                   />
                 </button>
               </div>

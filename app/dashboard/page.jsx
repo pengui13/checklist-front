@@ -2,7 +2,7 @@
 
 import TreePanel from '../components/TreePanel';
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Cookies from 'js-cookie';
 
 import { authApi } from '../../api/ApiWrapper';
@@ -28,11 +28,25 @@ function fmtDate(d) {
 function getStatusConfig(status) {
   const configs = {
     new: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', label: 'Neu' },
-    active: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Aktiv' },
+    active: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'In Arbeit' },
     completed: { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', label: 'Fertig' },
     cancelled: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', label: 'Storniert' },
+    draft: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-200', label: 'Entwurf' },
+    planned: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', label: 'In Planung' },
+    finished: { bg: 'bg-teal-50', text: 'text-teal-700', border: 'border-teal-200', label: 'Abgeschlossen' },
+    expired: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', label: 'Abgelaufen' },
   };
   return configs[status] || configs.new;
+}
+
+function getRecurrenceLabel(pattern) {
+  const labels = {
+    weekly: 'Wöchentlich',
+    monthly: 'Monatlich',
+    quarterly: 'Vierteljährlich',
+    yearly: 'Jährlich',
+  };
+  return labels[pattern] || pattern;
 }
 
 function getLevelColor(level) {
@@ -84,24 +98,19 @@ function formatFileSize(bytes) {
 }
 
 function getUserLabel(u) {
+  if (u?.first_name && u?.last_name) return `${u.first_name} ${u.last_name}`;
   return u?.username || u?.name || u?.email || `User #${u?.id ?? ''}`;
 }
 
-function uniqBy(arr, keyFn) {
-  const seen = new Set();
-  const out = [];
-  for (const item of arr) {
-    const k = keyFn(item);
-    if (k == null) continue;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    out.push(item);
-  }
-  return out;
+function getInitials(u) {
+  if (u?.first_name && u?.last_name) return `${u.first_name[0]}${u.last_name[0]}`.toUpperCase();
+  const label = getUserLabel(u);
+  return (label?.[0] || '?').toUpperCase();
 }
 
 export default function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const token = useMemo(() => Cookies.get('access_token'), []);
 
   const [user, setUser] = useState(null);
@@ -116,13 +125,13 @@ export default function Dashboard() {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
 
-  const [rightPanelMode, setRightPanelMode] = useState('info'); 
+  const [rightPanelMode, setRightPanelMode] = useState('info');
 
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
 
+  // ✅ Detail is local now (no extra API endpoints needed)
   const [taskDetail, setTaskDetail] = useState(null);
-  const [taskDetailLoading, setTaskDetailLoading] = useState(false);
   const [showTaskDetail, setShowTaskDetail] = useState(false);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -131,6 +140,11 @@ export default function Dashboard() {
   const [inviteError, setInviteError] = useState('');
   const [inviteSuccess, setInviteSuccess] = useState('');
 
+  // read ?tab=aktuell|projekte
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab === 'aktuell' || tab === 'projekte') setActiveTab(tab);
+  }, [searchParams]);
 
   useEffect(() => {
     if (!authApi.isAuthenticated()) {
@@ -160,8 +174,8 @@ export default function Dashboard() {
         setLoading(false);
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);
-
 
   const fetchProjects = async () => {
     try {
@@ -174,12 +188,14 @@ export default function Dashboard() {
       const list = Array.isArray(data) ? data : data?.results || [];
       setProjects(list);
 
+      // choose current or first
       setSelectedProject((prev) => {
         if (prev && list.some((p) => p.id === prev.id)) return prev;
         return list[0] || null;
       });
 
-      if (!selectedProject && list[0]) {
+      // if nothing selected before, fetch tasks for first
+      if ((!selectedProject || !list.some((p) => p.id === selectedProject?.id)) && list[0]) {
         setRightPanelMode('info');
         await fetchTasks(list[0].id);
       }
@@ -201,6 +217,7 @@ export default function Dashboard() {
       const list = Array.isArray(data) ? data : data?.results || [];
       setTasks(list);
 
+      // close detail when task list refreshes
       setShowTaskDetail(false);
       setTaskDetail(null);
     } catch (e) {
@@ -210,29 +227,9 @@ export default function Dashboard() {
     }
   };
 
-  const fetchTaskDetail = async (taskId) => {
-    setTaskDetailLoading(true);
-    try {
-      const taskRes = await fetch(`${API}/organisation/tasks/${taskId}/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (!taskRes.ok) return;
-      const taskData = await taskRes.json();
-
-      const attachRes = await fetch(`${API}/organisation/tasks/${taskId}/attachments/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      let attachments = [];
-      if (attachRes.ok) attachments = await attachRes.json();
-
-      setTaskDetail({ ...taskData, attachments });
-      setShowTaskDetail(true);
-    } catch (e) {
-      console.error('Failed to fetch task detail:', e);
-    } finally {
-      setTaskDetailLoading(false);
-    }
+  const openTaskDetail = (task) => {
+    setTaskDetail(task);
+    setShowTaskDetail(true);
   };
 
   const openInviteModal = () => {
@@ -269,14 +266,10 @@ export default function Dashboard() {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email,
-          project: selectedProject.id,
-        }),
+        body: JSON.stringify({ email, project: selectedProject.id }),
       });
 
       const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
         const msg =
           data?.detail ||
@@ -320,17 +313,6 @@ export default function Dashboard() {
     await fetchTasks(project.id);
   };
 
-  const projectPeople = useMemo(() => {
-    const usersFromTasks = [];
-    for (const t of tasks || []) {
-      if (!Array.isArray(t.assigned_users)) continue;
-      for (const u of t.assigned_users) {
-        if (typeof u === 'object' && u) usersFromTasks.push(u);
-      }
-    }
-    return uniqBy(usersFromTasks, (u) => u.id || u.email);
-  }, [tasks]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -369,6 +351,7 @@ export default function Dashboard() {
         onSuccess={handleTaskCreated}
       />
 
+      {/* Invite Modal */}
       {showInviteModal && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -419,8 +402,7 @@ export default function Dashboard() {
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="name@firma.de"
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-400
-                           focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-black focus:border-black"
                 disabled={inviteLoading}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -430,9 +412,7 @@ export default function Dashboard() {
                   if (e.key === 'Escape') closeInviteModal();
                 }}
               />
-              <p className="mt-3 text-xs text-gray-600">
-                Der Empfänger bekommt einen Link per E-Mail, um die Einladung anzunehmen.
-              </p>
+              <p className="mt-3 text-xs text-gray-600">Der Empfänger bekommt einen Link per E-Mail, um die Einladung anzunehmen.</p>
             </div>
 
             <div className="px-6 py-4 border-t border-gray-100 flex gap-3 justify-end">
@@ -457,6 +437,7 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Task Detail Modal (LOCAL DATA ONLY) */}
       {showTaskDetail && taskDetail && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -536,7 +517,7 @@ export default function Dashboard() {
                       const userObj = typeof u === 'object' ? u : null;
                       const label = userObj ? getUserLabel(userObj) : `User #${u}`;
                       const email = userObj?.email;
-                      const initials = (label?.[0] || '?').toUpperCase();
+                      const initials = userObj ? getInitials(userObj) : '?';
 
                       return (
                         <div key={userObj?.id || `${u}-${idx}`} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
@@ -631,74 +612,46 @@ export default function Dashboard() {
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-1">Keine aktuellen Aufgaben</h3>
-                <p className="text-gray-600 text-sm">Wähle ein Projekt aus und erstelle Aufgaben im Tab „Projekte“.</p>
+                <p className="text-gray-600 text-sm">Wähle ein Projekt aus und erstelle Aufgaben im Tab „Projekte".</p>
               </div>
             </div>
           )}
 
-   
           {activeTab === 'projekte' && (
             <div className="h-[calc(100vh-110px)]">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">Projekte</h1>
-                  <p className="text-sm text-gray-600 mt-0.5">
-                    Wähle ein Projekt links. Rechts: Info oder Aufgabenbaum.
-                  </p>
+                  <p className="text-sm text-gray-600 mt-0.5">Wähle ein Projekt links. Rechts: Info oder Aufgabenbaum.</p>
                 </div>
                 <button
                   onClick={() => setShowCreateProject(true)}
                   className="px-4 py-2.5 bg-black text-white rounded-xl hover:bg-gray-800 font-medium text-sm flex items-center gap-2"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
                   Neues Projekt
                 </button>
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 h-full">
+                {/* Project Sidebar */}
                 <aside className="lg:col-span-3 h-full">
                   <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden h-full flex flex-col">
                     <div className="px-4 py-3 border-b border-gray-100 bg-gray-50">
-                      <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                        Projekte
-                      </h2>
+                      <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Projekte</h2>
                     </div>
 
                     {projects.length === 0 ? (
                       <div className="p-6 text-center flex-1 flex flex-col items-center justify-center">
                         <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center mb-3">
-                          <svg
-                            className="w-6 h-6 text-gray-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                            />
+                          <svg className="w-6 h-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                           </svg>
                         </div>
-                        <p className="text-gray-900 font-medium">
-                          Keine Projekte
-                        </p>
-                        <p className="text-gray-600 text-sm mt-1">
-                          Erstelle dein erstes Projekt.
-                        </p>
+                        <p className="text-gray-900 font-medium">Keine Projekte</p>
+                        <p className="text-gray-600 text-sm mt-1">Erstelle dein erstes Projekt.</p>
                         <button
                           onClick={() => setShowCreateProject(true)}
                           className="mt-4 px-4 py-2 bg-black text-white rounded-xl hover:bg-gray-800 text-sm font-medium"
@@ -710,56 +663,32 @@ export default function Dashboard() {
                       <div className="p-2 overflow-y-auto flex-1">
                         {projects.map((p) => {
                           const active = selectedProject?.id === p.id;
+                          const statusConfig = getStatusConfig(p.status);
                           return (
                             <div key={p.id} className="mb-2">
                               <button
                                 onClick={() => handleProjectSelect(p)}
-                                className={`w-full text-left px-3 py-3 rounded-xl transition ${
-                                  active
-                                    ? 'bg-black text-white'
-                                    : 'hover:bg-gray-50'
-                                }`}
+                                className={`w-full text-left px-3 py-3 rounded-xl transition ${active ? 'bg-black text-white' : 'hover:bg-gray-50'}`}
                               >
                                 <div className="flex items-center gap-3">
-                                  <div
-                                    className={`w-9 h-9 rounded-xl flex items-center justify-center ${
-                                      active ? 'bg-white/20' : 'bg-gray-100'
-                                    }`}
-                                  >
-                                    <svg
-                                      className={`w-4 h-4 ${
-                                        active ? 'text-white' : 'text-gray-600'
-                                      }`}
-                                      fill="none"
-                                      viewBox="0 0 24 24"
-                                      stroke="currentColor"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"
-                                      />
+                                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${active ? 'bg-white/20' : 'bg-gray-100'}`}>
+                                    <svg className={`w-4 h-4 ${active ? 'text-white' : 'text-gray-600'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                                     </svg>
                                   </div>
                                   <div className="flex-1 min-w-0">
-                                    <p
-                                      className={`text-sm font-semibold truncate ${
-                                        active ? 'text-white' : 'text-gray-900'
-                                      }`}
-                                    >
-                                      {p.name}
+                                    <div className="flex items-center gap-2">
+                                      <p className={`text-sm font-semibold truncate ${active ? 'text-white' : 'text-gray-900'}`}>{p.name}</p>
+                                      {!active && (
+                                        <span className={`px-1.5 py-0.5 text-[10px] rounded ${statusConfig.bg} ${statusConfig.text} border ${statusConfig.border}`}>
+                                          {statusConfig.label}
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className={`text-xs truncate ${active ? 'text-gray-300' : 'text-gray-600'}`}>
+                                      {p.firm?.name || 'Keine Firma'} → {p.partner?.name || 'Kein Partner'}
                                     </p>
-                                    <p
-                                      className={`text-xs truncate ${
-                                        active
-                                          ? 'text-gray-300'
-                                          : 'text-gray-600'
-                                      }`}
-                                    >
-                                      {p.partner?.name || 'Kein Partner'} • Start:{' '}
-                                      {fmtDate(p.start_date)}
-                                    </p>
+                                    <p className={`text-xs ${active ? 'text-gray-400' : 'text-gray-500'}`}>Start: {fmtDate(p.start_date)}</p>
                                   </div>
                                 </div>
                               </button>
@@ -769,9 +698,7 @@ export default function Dashboard() {
                                   <button
                                     onClick={() => setRightPanelMode('info')}
                                     className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium border transition ${
-                                      rightPanelMode === 'info'
-                                        ? 'bg-black text-white border-black'
-                                        : 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
+                                      rightPanelMode === 'info' ? 'bg-black text-white border-black' : 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
                                     }`}
                                   >
                                     Info
@@ -779,9 +706,7 @@ export default function Dashboard() {
                                   <button
                                     onClick={() => setRightPanelMode('tasks')}
                                     className={`flex-1 px-3 py-2 rounded-xl text-sm font-medium border transition ${
-                                      rightPanelMode === 'tasks'
-                                        ? 'bg-black text-white border-black'
-                                        : 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
+                                      rightPanelMode === 'tasks' ? 'bg-black text-white border-black' : 'bg-white border-gray-200 text-gray-900 hover:bg-gray-50'
                                     }`}
                                   >
                                     Aufgaben
@@ -796,31 +721,18 @@ export default function Dashboard() {
                   </div>
                 </aside>
 
+                {/* Main Content Area */}
                 <section className="lg:col-span-9 h-full">
                   {!selectedProject ? (
                     <div className="bg-white border border-gray-200 rounded-2xl h-full flex items-center justify-center">
                       <div className="text-center p-8">
                         <div className="w-14 h-14 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                          <svg
-                            className="w-7 h-7 text-gray-500"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"
-                            />
+                          <svg className="w-7 h-7 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5" />
                           </svg>
                         </div>
-                        <p className="text-gray-900 font-semibold">
-                          Wähle ein Projekt
-                        </p>
-                        <p className="text-gray-600 text-sm mt-1">
-                          Rechts erscheinen Infos oder Aufgaben.
-                        </p>
+                        <p className="text-gray-900 font-semibold">Wähle ein Projekt</p>
+                        <p className="text-gray-600 text-sm mt-1">Rechts erscheinen Infos oder Aufgaben.</p>
                       </div>
                     </div>
                   ) : rightPanelMode === 'tasks' ? (
@@ -829,133 +741,81 @@ export default function Dashboard() {
                       tasks={tasks}
                       tasksLoading={tasksLoading}
                       onCreateTask={() => setShowCreateTask(true)}
-                      onFetchTaskDetail={fetchTaskDetail}
-                      taskDetailLoading={taskDetailLoading}
+                      onOpenTaskDetail={openTaskDetail}   // ✅ NEW
                     />
                   ) : (
+                    /* Project Info Panel */
                     <div className="bg-white border border-gray-200 rounded-2xl h-full flex flex-col">
                       <div className="px-5 py-4 border-b border-gray-100">
-                        <h2 className="text-lg font-bold text-gray-900">
-                          {selectedProject.name}
-                        </h2>
-                        <p className="text-sm text-gray-600 mt-1">
-                          Projektinformationen
-                        </p>
+                        <div className="flex items-center gap-3">
+                          <h2 className="text-lg font-bold text-gray-900">{selectedProject.name}</h2>
+                          <span className={`px-2 py-0.5 text-xs rounded-full ${getStatusConfig(selectedProject.status).bg} ${getStatusConfig(selectedProject.status).text} border ${getStatusConfig(selectedProject.status).border}`}>
+                            {getStatusConfig(selectedProject.status).label}
+                          </span>
+                        </div>
+                        <p className="text-sm text-gray-600 mt-1">Projektinformationen</p>
                       </div>
 
                       <div className="flex-1 overflow-y-auto p-5 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <p className="text-xs text-gray-500 mb-1">Firma</p>
+                            <p className="text-sm font-semibold text-gray-900">{selectedProject.firm?.name || '—'}</p>
+                            {selectedProject.firm?.creator && <p className="text-xs text-gray-500 mt-1">Ersteller: {selectedProject.firm.creator}</p>}
+                          </div>
+
                           <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                             <p className="text-xs text-gray-500 mb-1">Partner</p>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {selectedProject.partner?.name || 'Kein Partner'}
-                            </p>
+                            <p className="text-sm font-semibold text-gray-900">{selectedProject.partner?.name || 'Kein Partner'}</p>
+                            {selectedProject.partner?.creator && <p className="text-xs text-gray-500 mt-1">Ersteller: {selectedProject.partner.creator}</p>}
                           </div>
+
                           <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                            <p className="text-xs text-gray-500 mb-1">Start</p>
-                            <p className="text-sm font-semibold text-gray-900">
-                              {fmtDate(selectedProject.start_date)}
-                            </p>
+                            <p className="text-xs text-gray-500 mb-1">Startdatum</p>
+                            <p className="text-sm font-semibold text-gray-900">{fmtDate(selectedProject.start_date)}</p>
                           </div>
+
                           <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-                            <p className="text-xs text-gray-500 mb-1">Status</p>
-                            <p className="text-sm font-semibold text-gray-900 capitalize">
-                              {selectedProject.status}
-                            </p>
+                            <p className="text-xs text-gray-500 mb-1">Enddatum</p>
+                            <p className="text-sm font-semibold text-gray-900">{selectedProject.end_date ? fmtDate(selectedProject.end_date) : 'Offen'}</p>
                           </div>
+
                           <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
                             <p className="text-xs text-gray-500 mb-1">Wiederholung</p>
                             <p className="text-sm font-semibold text-gray-900">
-                              {selectedProject.recurrence_pattern || 'Einmalig'}
+                              {selectedProject.is_one_time ? 'Einmalig' : getRecurrenceLabel(selectedProject.recurrence_pattern) || 'Einmalig'}
                             </p>
                           </div>
+
+                          <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
+                            <p className="text-xs text-gray-500 mb-1">Projekt-ID</p>
+                            <p className="text-sm font-semibold text-gray-900 font-mono">#{selectedProject.id}</p>
+                          </div>
                         </div>
 
                         <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-sm font-semibold text-gray-900">
-                              Beteiligte Personen
-                            </h3>
-                            <button
-                              onClick={openInviteModal}
-                              className="px-3 py-1.5 bg-black text-white text-xs rounded-lg hover:bg-gray-800 font-medium"
-                            >
-                              + Einladen
-                            </button>
+                          <h3 className="text-sm font-semibold text-gray-900 mb-3">Aufgabenübersicht</h3>
+                          <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
+                            {['new','planned','active','completed','cancelled','expired'].map((s) => {
+                              const c = getStatusConfig(s);
+                              const count = tasks.filter((t) => t.status === s).length;
+                              return (
+                                <div key={s} className={`${c.bg} rounded-xl p-3 border ${c.border} text-center`}>
+                                  <p className={`text-2xl font-bold ${c.text}`}>{count}</p>
+                                  <p className={`text-xs ${c.text} mt-1`}>{c.label}</p>
+                                </div>
+                              );
+                            })}
                           </div>
 
-                          {projectPeople.length === 0 ? (
-                            <div className="bg-gray-50 rounded-xl p-4 text-center border border-gray-100">
-                              <p className="text-gray-600 text-sm">
-                                Noch keine Personen zugewiesen
-                              </p>
-                              <button
-                                onClick={openInviteModal}
-                                className="mt-2 px-3 py-1.5 bg-black text-white text-xs rounded-lg hover:bg-gray-800 font-medium"
-                              >
-                                Erste Person einladen
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="space-y-2">
-                              {projectPeople.map((person) => {
-                                const initials = getUserLabel(person)[0]?.toUpperCase() || '?';
-                                return (
-                                  <div
-                                    key={person.id || person.email}
-                                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl border border-gray-100"
-                                  >
-                                    <div className="w-10 h-10 rounded-full bg-gray-900 text-white flex items-center justify-center font-semibold text-sm">
-                                      {initials}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-sm font-medium text-gray-900 truncate">
-                                        {getUserLabel(person)}
-                                      </p>
-                                      {person.email && (
-                                        <p className="text-xs text-gray-500 truncate">
-                                          {person.email}
-                                        </p>
-                                      )}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
-
-                        <div>
-                          <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                            Aufgabenübersicht
-                          </h3>
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <div className="bg-blue-50 rounded-xl p-3 border border-blue-100 text-center">
-                              <p className="text-2xl font-bold text-blue-700">
-                                {tasks.filter(t => t.status === 'new').length}
-                              </p>
-                              <p className="text-xs text-blue-600 mt-1">Neu</p>
-                            </div>
-                            <div className="bg-emerald-50 rounded-xl p-3 border border-emerald-100 text-center">
-                              <p className="text-2xl font-bold text-emerald-700">
-                                {tasks.filter(t => t.status === 'active').length}
-                              </p>
-                              <p className="text-xs text-emerald-600 mt-1">Aktiv</p>
-                            </div>
-                            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100 text-center">
-                              <p className="text-2xl font-bold text-gray-700">
-                                {tasks.filter(t => t.status === 'completed').length}
-                              </p>
-                              <p className="text-xs text-gray-600 mt-1">Fertig</p>
-                            </div>
-                            <div className="bg-red-50 rounded-xl p-3 border border-red-100 text-center">
-                              <p className="text-2xl font-bold text-red-700">
-                                {tasks.filter(t => t.status === 'cancelled').length}
-                              </p>
-                              <p className="text-xs text-red-600 mt-1">Storniert</p>
+                          <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-gray-600">Gesamt Aufgaben</span>
+                              <span className="text-sm font-bold text-gray-900">{tasks.length}</span>
                             </div>
                           </div>
                         </div>
+
                       </div>
                     </div>
                   )}

@@ -13,8 +13,8 @@ const normalizeHex = (v) =>
 const OnboardingModal = ({ isOpen, onClose }) => {
   const [page, setPage] = useState(1);
 
-  const [userType, setUserType] = useState(null); 
-  const [firmAction, setFirmAction] = useState(null); 
+  const [userType, setUserType] = useState(null);
+  const [firmAction, setFirmAction] = useState(null);
 
   const [firms, setFirms] = useState([]);
   const [selectedFirmId, setSelectedFirmId] = useState(null);
@@ -36,11 +36,18 @@ const OnboardingModal = ({ isOpen, onClose }) => {
 
   useEffect(() => {
     if (!isOpen) return;
-
     setError('');
     setLoading(false);
-
     checkUserStatus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
   }, [isOpen]);
 
   const checkUserStatus = async () => {
@@ -56,7 +63,6 @@ const OnboardingModal = ({ isOpen, onClose }) => {
       const _hasColor = Boolean(userData?.hex_color);
 
       if (_hasColor) setHexColor(normalizeHex(userData.hex_color));
-
 
       if (!_hasFirm) {
         setPage(1);
@@ -89,7 +95,7 @@ const OnboardingModal = ({ isOpen, onClose }) => {
 
   const handlePage1Continue = async () => {
     if (!userType) {
-      setError('Please select an option');
+      setError('Bitte wählen Sie eine Option');
       return;
     }
 
@@ -107,12 +113,12 @@ const OnboardingModal = ({ isOpen, onClose }) => {
 
   const handlePage2Continue = async () => {
     if (firmAction === 'join' && !selectedFirmId) {
-      setError('Please select a firm');
+      setError('Bitte wählen Sie eine Firma');
       return;
     }
 
     if (firmAction === 'create' && !newFirmName.trim()) {
-      setError('Please enter a firm name');
+      setError('Bitte geben Sie einen Firmennamen ein');
       return;
     }
 
@@ -134,7 +140,7 @@ const OnboardingModal = ({ isOpen, onClose }) => {
 
         const firmData = await createResponse.json().catch(() => ({}));
         if (!createResponse.ok) {
-          throw new Error(firmData?.error || 'Failed to create firm');
+          throw new Error(firmData?.error || 'Firma konnte nicht erstellt werden');
         }
 
         firmId = firmData.id;
@@ -151,7 +157,7 @@ const OnboardingModal = ({ isOpen, onClose }) => {
 
       const updateData = await updateResponse.json().catch(() => ({}));
       if (!updateResponse.ok) {
-        throw new Error(updateData?.error || 'Failed to join firm');
+        throw new Error(updateData?.error || 'Beitritt zur Firma fehlgeschlagen');
       }
 
       await checkUserStatus();
@@ -165,7 +171,7 @@ const OnboardingModal = ({ isOpen, onClose }) => {
         setPage(3);
       }
     } catch (err) {
-      setError(err?.message || 'Network error');
+      setError(err?.message || 'Netzwerkfehler');
       console.error('Error in page 2:', err);
     } finally {
       setLoading(false);
@@ -175,7 +181,7 @@ const OnboardingModal = ({ isOpen, onClose }) => {
   const handleColorSubmit = async () => {
     const hex = normalizeHex(hexColor);
     if (!hex || hex.length !== 6) {
-      setError('Please enter a valid 6-character hex color');
+      setError('Bitte geben Sie einen gültigen 6-stelligen Hex-Code ein');
       return;
     }
 
@@ -198,10 +204,10 @@ const OnboardingModal = ({ isOpen, onClose }) => {
         onClose();
         window.location.reload();
       } else {
-        setError(data?.error || 'Failed to set color');
+        setError(data?.error || 'Farbe konnte nicht gespeichert werden');
       }
     } catch (err) {
-      setError('Network error');
+      setError('Netzwerkfehler');
       console.error('Error setting color:', err);
     } finally {
       setLoading(false);
@@ -210,70 +216,81 @@ const OnboardingModal = ({ isOpen, onClose }) => {
 
   if (!isOpen) return null;
 
+  const inputClass = "w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-900 transition-all bg-white text-gray-900 placeholder:text-gray-400";
+
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="bg-gray-100 px-8 py-4 border-b border-gray-200">
-          <div className="flex items-center justify-between">
+    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-8 py-5 rounded-t-2xl">
+          <div className="flex items-center justify-center gap-3">
             {steps.map((step, idx) => (
-              <div key={step} className="flex items-center">
+              <React.Fragment key={step}>
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center font-semibold ${
-                    page >= step ? 'bg-black text-white' : 'bg-gray-300 text-gray-600'
+                  className={`w-9 h-9 rounded-full flex items-center justify-center font-medium text-sm transition-all ${
+                    page >= step 
+                      ? 'bg-gray-900 text-white' 
+                      : 'bg-gray-100 text-gray-400 border border-gray-200'
                   }`}
                 >
-                  {step}
+                  {page > step ? (
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    step
+                  )}
                 </div>
                 {idx < steps.length - 1 && (
-                  <div
-                    className={`w-16 h-1 mx-2 ${page > step ? 'bg-black' : 'bg-gray-300'}`}
-                  />
+                  <div className={`w-12 h-0.5 rounded-full transition-all ${page > step ? 'bg-gray-900' : 'bg-gray-200'}`} />
                 )}
-              </div>
+              </React.Fragment>
             ))}
           </div>
-
-          <div className="mt-2 text-sm text-gray-600 text-center">
+          <p className="mt-3 text-sm text-gray-500 text-center">
             {page === 1 && 'Ihre Rolle'}
-            {page === 2 && 'Firma auswählen'}
+            {page === 2 && (firmAction === 'join' ? 'Firma beitreten' : 'Firma erstellen')}
             {page === 3 && 'Farbe wählen'}
-          </div>
+          </p>
         </div>
 
         <div className="p-8">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm whitespace-pre-line">
-              {error}
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 text-sm flex gap-3">
+              <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error}</span>
             </div>
           )}
 
           {page === 1 && (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-900">
-                Willkommen! Wie möchten Sie sich anmelden?
-              </h2>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Willkommen!</h2>
+                <p className="text-gray-500 mt-1">Wie möchten Sie sich anmelden?</p>
+              </div>
 
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <button
                   type="button"
                   onClick={() => setUserType('angestellte')}
-                  className={`w-full p-6 rounded-lg border-2 transition-all text-left ${
+                  className={`w-full p-5 rounded-xl border transition-all text-left ${
                     userType === 'angestellte'
-                      ? 'border-black bg-gray-50'
-                      : 'border-gray-300 hover:border-gray-400'
+                      ? 'border-gray-900 bg-gray-50'
+                      : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                   }`}
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        userType === 'angestellte' ? 'border-black' : 'border-gray-400'
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                        userType === 'angestellte' ? 'border-gray-900' : 'border-gray-300'
                       }`}
                     >
-                      {userType === 'angestellte' && <div className="w-3 h-3 rounded-full bg-black" />}
+                      {userType === 'angestellte' && <div className="w-2.5 h-2.5 rounded-full bg-gray-900" />}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg text-gray-900">Ich bin Angestellte/r</h3>
-                      <p className="text-sm text-gray-600">Einer bestehenden Firma beitreten</p>
+                      <h3 className="font-medium text-gray-900">Ich bin Angestellte/r</h3>
+                      <p className="text-sm text-gray-500 mt-0.5">Einer bestehenden Firma beitreten</p>
                     </div>
                   </div>
                 </button>
@@ -281,23 +298,23 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={() => setUserType('unternehmer')}
-                  className={`w-full p-6 rounded-lg border-2 transition-all text-left ${
+                  className={`w-full p-5 rounded-xl border transition-all text-left ${
                     userType === 'unternehmer'
-                      ? 'border-black bg-gray-50'
-                      : 'border-gray-300 hover:border-gray-400'
+                      ? 'border-gray-900 bg-gray-50'
+                      : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                   }`}
                 >
                   <div className="flex items-center gap-4">
                     <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${
-                        userType === 'unternehmer' ? 'border-black' : 'border-gray-400'
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                        userType === 'unternehmer' ? 'border-gray-900' : 'border-gray-300'
                       }`}
                     >
-                      {userType === 'unternehmer' && <div className="w-3 h-3 rounded-full bg-black" />}
+                      {userType === 'unternehmer' && <div className="w-2.5 h-2.5 rounded-full bg-gray-900" />}
                     </div>
                     <div>
-                      <h3 className="font-semibold text-lg text-gray-900">Ich habe eine Firma</h3>
-                      <p className="text-sm text-gray-600">Eine neue Firma erstellen</p>
+                      <h3 className="font-medium text-gray-900">Ich habe eine Firma</h3>
+                      <p className="text-sm text-gray-500 mt-0.5">Eine neue Firma erstellen</p>
                     </div>
                   </div>
                 </button>
@@ -307,13 +324,12 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                 type="button"
                 onClick={handlePage1Continue}
                 disabled={!userType}
-                className={`w-full py-3 rounded-lg font-semibold transition-all ${
-                  userType
-                    ? 'bg-black text-white hover:bg-gray-800'
-                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                }`}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-medium disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 Weiter
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
           )}
@@ -323,10 +339,10 @@ const OnboardingModal = ({ isOpen, onClose }) => {
               <button
                 type="button"
                 onClick={() => setPage(1)}
-                className="text-gray-600 hover:text-black flex items-center gap-2"
+                className="text-gray-500 hover:text-gray-900 flex items-center gap-1.5 text-sm font-medium transition-colors"
                 disabled={loading}
               >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
                 Zurück
@@ -334,26 +350,47 @@ const OnboardingModal = ({ isOpen, onClose }) => {
 
               {firmAction === 'join' ? (
                 <>
-                  <h2 className="text-2xl font-bold text-gray-900">Firma auswählen</h2>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Firma auswählen</h2>
+                    <p className="text-gray-500 mt-1">Wählen Sie die Firma, der Sie beitreten möchten</p>
+                  </div>
 
-                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                     {firms.length === 0 ? (
-                      <p className="text-gray-500 text-center py-8">Keine Firmen verfügbar</p>
+                      <div className="text-gray-400 text-center py-12 bg-gray-50 rounded-xl border border-gray-200">
+                        <svg className="w-12 h-12 mx-auto mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        <p>Keine Firmen verfügbar</p>
+                      </div>
                     ) : (
                       firms.map((firm) => (
                         <button
                           type="button"
                           key={firm.id}
                           onClick={() => setSelectedFirmId(firm.id)}
-                          className={`w-full p-4 rounded-lg border-2 transition-all text-left ${
+                          className={`w-full p-4 rounded-xl border transition-all text-left ${
                             selectedFirmId === firm.id
-                              ? 'border-black bg-gray-50'
-                              : 'border-gray-300 hover:border-gray-400'
+                              ? 'border-gray-900 bg-gray-50'
+                              : 'border-gray-300 hover:border-gray-400 hover:bg-gray-50'
                           }`}
                           disabled={loading}
                         >
-                          <h4 className="font-semibold text-gray-900">{firm.name}</h4>
-                          <p className="text-sm text-gray-600">{firm.workers ?? ''} Mitarbeiter</p>
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <h4 className="font-medium text-gray-900">{firm.name}</h4>
+                              {firm.workers && (
+                                <p className="text-sm text-gray-500 mt-0.5">{firm.workers} Mitarbeiter</p>
+                              )}
+                            </div>
+                            {selectedFirmId === firm.id && (
+                              <div className="w-5 h-5 rounded-full bg-gray-900 flex items-center justify-center">
+                                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                                </svg>
+                              </div>
+                            )}
+                          </div>
                         </button>
                       ))
                     )}
@@ -361,16 +398,21 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                 </>
               ) : (
                 <>
-                  <h2 className="text-2xl font-bold text-gray-900">Neue Firma erstellen</h2>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">Neue Firma erstellen</h2>
+                    <p className="text-gray-500 mt-1">Geben Sie den Namen Ihrer Firma ein</p>
+                  </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Firmenname</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Firmenname <span className="text-red-500">*</span>
+                    </label>
                     <input
                       type="text"
                       placeholder="z.B. Meine Firma GmbH"
                       value={newFirmName}
                       onChange={(e) => setNewFirmName(e.target.value)}
-                      className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black focus:border-transparent text-gray-900"
+                      className={inputClass}
                       disabled={loading}
                     />
                   </div>
@@ -385,15 +427,24 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                   (firmAction === 'join' && !selectedFirmId) ||
                   (firmAction === 'create' && !newFirmName.trim())
                 }
-                className={`w-full py-3 rounded-lg font-semibold transition-all ${
-                  loading ||
-                  (firmAction === 'join' && !selectedFirmId) ||
-                  (firmAction === 'create' && !newFirmName.trim())
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-black text-white hover:bg-gray-800'
-                }`}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-medium disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {loading ? 'Wird verarbeitet…' : 'Weiter'}
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>Wird verarbeitet...</span>
+                  </>
+                ) : (
+                  <>
+                    Weiter
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </>
+                )}
               </button>
             </div>
           )}
@@ -404,36 +455,37 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                 <button
                   type="button"
                   onClick={() => setPage(2)}
-                  className="text-gray-600 hover:text-black flex items-center gap-2"
+                  className="text-gray-500 hover:text-gray-900 flex items-center gap-1.5 text-sm font-medium transition-colors"
                   disabled={loading}
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                   Zurück
                 </button>
               )}
 
-              <h2 className="text-2xl font-bold text-gray-900">Wählen Sie Ihre Farbe</h2>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Wählen Sie Ihre Farbe</h2>
+                <p className="text-gray-500 mt-1">Diese Farbe identifiziert Sie in Projekten</p>
+              </div>
 
-              <p className="text-gray-600">
-                Diese Farbe wird verwendet, um Sie in Projekten zu identifizieren.
-              </p>
-
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div className="flex gap-4 items-start">
-                  <input
-                    type="color"
-                    value={`#${normalizeHex(hexColor).padEnd(6, '0')}`}
-                    onChange={(e) => setHexColor(normalizeHex(e.target.value))}
-                    className="w-24 h-24 rounded-lg cursor-pointer border-2 border-gray-300"
-                    disabled={loading}
-                  />
+                  <div className="relative">
+                    <input
+                      type="color"
+                      value={`#${normalizeHex(hexColor).padEnd(6, '0')}`}
+                      onChange={(e) => setHexColor(normalizeHex(e.target.value))}
+                      className="w-20 h-20 rounded-xl cursor-pointer border border-gray-300 bg-white"
+                      disabled={loading}
+                    />
+                  </div>
 
                   <div className="flex-1">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Hex-Code</label>
-                    <div className="flex gap-2">
-                      <span className="flex items-center justify-center px-4 bg-gray-100 border-2 border-gray-300 rounded-l-lg text-gray-700 font-mono">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Hex-Code</label>
+                    <div className="flex">
+                      <span className="flex items-center justify-center px-3 bg-gray-100 border border-r-0 border-gray-300 rounded-l-xl text-gray-500 font-mono text-sm">
                         #
                       </span>
                       <input
@@ -442,15 +494,14 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                         onChange={(e) => setHexColor(normalizeHex(e.target.value))}
                         maxLength={6}
                         placeholder="000000"
-                        className="flex-1 px-4 py-3 border-2 border-gray-300 rounded-r-lg focus:outline-none focus:ring-2 focus:ring-black font-mono text-lg text-gray-900"
+                        className="flex-1 px-4 py-2.5 border border-gray-300 rounded-r-xl focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-gray-900 font-mono text-sm transition-all bg-white text-gray-900 placeholder:text-gray-400"
                         disabled={loading}
                       />
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">6-stelliger Hexadezimalcode (z.B. FF5733)</p>
                   </div>
 
                   <div
-                    className="w-24 h-24 rounded-lg border-2 border-gray-300 shadow-inner"
+                    className="w-20 h-20 rounded-xl border border-gray-300 shadow-inner flex-shrink-0"
                     style={{ backgroundColor: `#${normalizeHex(hexColor).padEnd(6, '0')}` }}
                   />
                 </div>
@@ -461,15 +512,17 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                   </label>
                   <div className="grid grid-cols-8 gap-2">
                     {[
-                      'FF0000','FF7F00','FFFF00','00FF00','0000FF','4B0082','9400D3','000000',
-                      'FF1493','00CED1','FFD700','FF6347','32CD32','1E90FF','FF69B4','808080',
+                      'EF4444', 'F97316', 'EAB308', '22C55E', '3B82F6', '6366F1', 'A855F7', '000000',
+                      'EC4899', '14B8A6', 'F59E0B', 'F87171', '4ADE80', '60A5FA', 'C084FC', '6B7280',
                     ].map((color) => (
                       <button
                         type="button"
                         key={color}
                         onClick={() => setHexColor(color)}
-                        className={`w-full aspect-square rounded-lg border-2 transition-all ${
-                          normalizeHex(hexColor) === color ? 'border-black scale-110' : 'border-gray-300 hover:border-gray-400'
+                        className={`aspect-square rounded-lg border-2 transition-all hover:scale-105 ${
+                          normalizeHex(hexColor) === color 
+                            ? 'border-gray-900 ring-2 ring-gray-900 ring-offset-2' 
+                            : 'border-transparent hover:border-gray-300'
                         }`}
                         style={{ backgroundColor: `#${color}` }}
                         title={`#${color}`}
@@ -484,13 +537,24 @@ const OnboardingModal = ({ isOpen, onClose }) => {
                 type="button"
                 onClick={handleColorSubmit}
                 disabled={loading || normalizeHex(hexColor).length !== 6}
-                className={`w-full py-3 rounded-lg font-semibold transition-all ${
-                  loading || normalizeHex(hexColor).length !== 6
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-black text-white hover:bg-gray-800'
-                }`}
+                className="w-full py-3 bg-gray-900 text-white rounded-xl hover:bg-black transition-all font-medium disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {loading ? 'Wird gespeichert…' : 'Fertig'}
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>Wird gespeichert...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    Fertig
+                  </>
+                )}
               </button>
             </div>
           )}

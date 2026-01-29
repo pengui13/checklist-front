@@ -20,6 +20,7 @@ function getStatusConfig(status) {
     active: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', label: 'Aktiv' },
     completed: { bg: 'bg-gray-50', text: 'text-gray-700', border: 'border-gray-200', label: 'Fertig' },
     cancelled: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', label: 'Storniert' },
+    expired: { bg: 'bg-orange-50', text: 'text-orange-700', border: 'border-orange-200', label: 'Abgelaufen' },
   };
   return configs[status] || configs.new;
 }
@@ -43,8 +44,7 @@ export default function TreePanel({
   tasks,
   tasksLoading,
   onCreateTask,
-  onFetchTaskDetail,
-  taskDetailLoading,
+  onOpenTaskDetail, // ✅ NEW: pass the whole task object
 }) {
   const [expandedLevels, setExpandedLevels] = useState({});
   const [selectedTaskId, setSelectedTaskId] = useState(null);
@@ -308,14 +308,16 @@ export default function TreePanel({
                                           </span>
                                         )}
 
+                                        {/* ✅ FIX: no API call, just open modal with existing task data */}
                                         <button
+                                          type="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            onFetchTaskDetail?.(t.id);
+                                            onOpenTaskDetail?.(t);
                                           }}
                                           className="ml-auto px-3 py-1.5 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors flex items-center gap-1.5"
                                         >
-                                          {taskDetailLoading ? <span className="text-xs">Lade…</span> : 'Details'}
+                                          Details
                                         </button>
                                       </div>
                                     </div>
