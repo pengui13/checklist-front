@@ -111,7 +111,7 @@ function getInitials(u) {
 
 export default function Dashboard() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  // const searchParams = useSearchParams();
   const token = useMemo(() => Cookies.get('access_token'), []);
 
   const [user, setUser] = useState(null);
@@ -142,10 +142,10 @@ export default function Dashboard() {
   const [inviteSuccess, setInviteSuccess] = useState('');
 
   // read ?tab=aktuell|projekte
-  useEffect(() => {
-    const tab = searchParams.get('tab');
-    if (tab === 'aktuell' || tab === 'projekte') setActiveTab(tab);
-  }, [searchParams]);
+  // useEffect(() => {
+  //   const tab = searchParams.get('tab');
+  //   if (tab === 'aktuell' || tab === 'projekte') setActiveTab(tab);
+  // }, [searchParams]);
 
   useEffect(() => {
     if (!authApi.isAuthenticated()) {
