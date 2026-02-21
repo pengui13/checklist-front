@@ -182,7 +182,6 @@ export default function Header({
 
       <header className="sticky top-0 z-50 border-b border-black/5 bg-white/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          {/* Logo & Brand */}
           <Link href={isLoggedIn ? "/dashboard" : "/"} className="flex items-center gap-3" onClick={closeAll}>
             <div className="grid h-11 w-11 place-items-center rounded-2xl border border-black/10 bg-white shadow-sm overflow-hidden">
               <Image
@@ -201,7 +200,6 @@ export default function Header({
             </div>
           </Link>
 
-          {/* Desktop Navigation - Only show when logged in */}
           {isLoggedIn ? (
             <nav className="hidden items-center gap-2 md:flex">
               <NavPill
